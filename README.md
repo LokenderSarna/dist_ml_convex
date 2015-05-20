@@ -1,2 +1,2 @@
 # dist_ml_convex
-Distributed machine learning via convex optimization principles
+A tool to distribute machine learning algorithms via convex optimization principles
