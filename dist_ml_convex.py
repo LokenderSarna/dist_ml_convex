@@ -1,13 +1,20 @@
 import numpy as np
 import math
 
+# Defining a layer of abstraction for each fi. Which will likely end up being a cut where each fi is responsible for some subset of data a machine learning algorithm needs to sift through
+class FirstOrderOracle:
+
+    # Where lambdas are the fis and grad lambdas are their gradients
+    def __init__(self, lambdas, grad_lambdas):
+        self.lambdas = lambdas
+        self.grad_lambdas = grad_lambdas
+
 # Here we define the class convex_problem to build a convex optimization problem to be sent to gradient descent
 class ConvexProblem:
 	
     # Take input basic parameters; d: x num vector dimensions, n: num terms in sum, lambdas: functions fis, x0: initial x value 
     def __init__(self, d, lambdas, x0=None):
         self.d = d
-        self.n = len(lambdas)
         self.lambdas = lambdas
         if x0 is None:
             self.x0 = np.random.random((self.d,1))
@@ -26,7 +33,6 @@ class GradientDescent:
     def __init__(self, convex_problem, alpha=None, epsilon=None, max_iter=None):
         self.convex_problem = convex_problem
         self.d = convex_problem.d
-        self.n = convex_problem.n
         self.lambdas = convex_problem.lambdas
         self.x = convex_problem.x0
         # Since alpha will be a function our default will also be a function to match type checking
