@@ -1,5 +1,6 @@
+from mpi4py import MPI
 import numpy as np
-import math
+import math, sys, inspect, itertools
 
 # Defining a layer of abstraction for each fi. Which will likely end up being a cut where each fi is responsible for some subset of data a machine learning algorithm needs to sift through
 class FirstOrderOracle:
@@ -15,7 +16,7 @@ class FirstOrderOracle:
             self.x_init = x_init
      
 # Defaults for gradient descent parameters
-EPSILON_DEFAULT = 0.0001
+EPSILON_DEFAULT = 0.001
 MAX_ITER_DEFAULT = 10000000
 ALPHA_DEFAULT = 0.001
 
@@ -40,6 +41,67 @@ class GradientDescent:
             self.max_iter = MAX_ITER_DEFAULT
         else:
             self.max_iter = max_iter
+    
+    # define a process that will take our derivative lambda function and continually compute values when needed
+    def spawn(self):
+        
+        print self.oracles
+        print self.x
+        print [self.x, self.oracles]
+        
+        """
+        #get the text value for grad_f to send as an argument for the child process
+        self.oracles[0].grad_f
+        grad_f_string = inspect.getsource(self.oracles[0].grad_f)
+        grad_f = self.oracles[0].grad_f
+        print grad_f
+        print "\n"
+        print "grad_f_string:"
+        print grad_f_string
+        
+        var = 40
+        
+        ARGS = ['-c', '\n'.join([
+                'import sys',
+                'from mpi4py import MPI',
+                'parent = MPI.Comm.Get_parent()',
+                '#rank = MPI.Comm.Get_rank()',
+                '#%s' % grad_f,
+                '#print var',
+                'print "We made it to a child process!!!"',
+                '#print grad_f1',
+                'parent.Disconnect()',
+                ])]
+        """
+        
+        comm = MPI.COMM_SELF.Spawn(sys.executable, args=['child.py'], maxprocs=len(self.oracles))
+        buf = [self.x, self.oracles]
+        comm.Bcast(buf, root=MPI.ROOT)
+        
+        gradient = numpy.array(0.0, 'd')
+        comm.Reduce(None, [new_x, MPI.DOUBLE], op=MPI.SUM, root=MPI.ROOT)
+        self.x = new_x
+        
+        comm.Disconnect()
+        
+        return None
+    
+    # Master process that controls the worker processes execution of finding each gradient            
+    def master(self):
+        
+        self.spawn()
+        
+        return None
+        # Create the communication instance
+        #self.comm = MPI.COMM_SELF.Spawn(sys.executable, args=['worker.py'])
+            
+        # declare the buffer holding the current value x(k)
+        #current_buffer = numpy.array(current_x_of_k, 'd')
+        
+        # disconnect from the communicator
+        #comm.Disconnect()    
+        
+        # Returns the solution x
             
     # Here we will actually execute the algorithm and return the solution if one is reached
     def execute(self):
@@ -61,16 +123,60 @@ class GradientDescent:
             
             # Here we do the update if we aren't within the epsilon value
             if np.linalg.norm(g_x) > self.epsilon:
-                # Note that fi is a function that goes from fi: R^d -> R^d, xk+1 = xk = alpha(num_iter)*f(xk)
+                # Note that fi is a function that goes from fi: R^d -> R^d, xk+1 = xk - alpha(num_iter)*f(xk)
                 self.x = np.subtract(self.x, np.multiply(self.alpha(num_iter),g_x))
             else:
                 cont_iter = False
                 print "Gradient descent has found a solution:"
                 print self.x
+                
+                self.master()
+                
                 return self.x
             
             # If we can't find a value within the max iteration limit return None
             if num_iter > self.max_iter:
                 print "Stopping after reaching iteration limit."
                 cont_iter = False
-                #NOTE: add a error message for return or some flag
+                # NOTE: add a error message for return or some flag
+
+"""
+# Class to define the children processes of masters             
+class Child:
+    
+    # The init method will prep the child for spawning
+    def __init__(self, oracle):
+        self.oracle = oracle
+        
+    # Method to execute the computation needed for reducing 
+    def spawn(self):
+        ARGS = ['-c', '\n'.join([
+                'import sys',
+                'from mpi4py import MPI',
+                'from dist_ml_convex import *'
+                'child%s.execute()', % child_id
+                'parent.Disconnect()',
+                ])]
+        comm = MPI.COMM_SELF.Spawn(sys.executable, args=ARGS)
+        
+        
+    # Method to disconnect
+    def disconnenct(self):
+        parent.Disconnect()
+"""    
+
+"""
+# Master process that controls the worker processes execution of finding each gradient            
+def Master:
+    
+    # We should only need the oracles to control the processes and return results
+    def __init__(self, oracles):
+        self.oracles = oracles
+        
+        # create the communication instance
+        self.comm = MPI.COMM_SELF.Spawn(sys.executable, args=['worker.py'])
+        
+    # Here we will find the summation of gradients at x using sub processes
+    def find_grad(x):
+        return None
+"""
