@@ -19,8 +19,8 @@ q3 = np.random.random((10,1))
 Q = Q1 + Q2 + Q3
 q = q1 + q2 + q3
 
-#print "Closed form Solution: "
-#print - np.dot(np.linalg.inv(Q), q)
+print "Closed form Solution: "
+print - np.dot(np.linalg.inv(Q), q)
 
 f1 = lambda x : (1/2)*(np.dot(np.dot(np.transpose(x), Q1), x)) + np.dot(q1, x)
 f2 = lambda x : (1/2)*(np.dot(np.dot(np.transpose(x), Q2), x)) + np.dot(q2, x)
