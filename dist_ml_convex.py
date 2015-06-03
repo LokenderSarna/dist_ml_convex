@@ -21,6 +21,17 @@ class GradientDescent:
     
     # Parameters taken as input; alpha: the step size function, epsilon the stopping critera, epsilon: the stop criterion, max_iter: upper limit on the number of iterations
     def __init__(self, oracles, alpha=None, epsilon=None, max_iter=None, x_init=None):
+        
+        # Here our gradient descent initialization will need to be assigned as the master
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+
+        # Needed variables for the MPI processing
+        self.comm = comm
+        self.rank = rank
+        self.size = size
+        
         self.oracles = oracles
         self.dim_f = self.oracles[0].dim_f
         # Since alpha will be a function our default will also be a function to match type checking
@@ -38,22 +49,18 @@ class GradientDescent:
             self.max_iter = max_iter
         if x_init == None:
             # We will randomly choose our x initial values for gradient descent
-            self.x = np.zeros((self.dim_f, 1)) 
-            #np.random.random((self.dim_f, 1))
+            if self.rank == 0:
+                data_bcast = np.random.random((self.dim_f, 1))
+            else:
+                data_bcast = None
+            # There might be a higher communication cost of using a randomly initialized x vector, but for now lets leave it
+            data_bcast = self.comm.bcast(data_bcast, root=0)     
+            self.x = data_bcast
+            
         else:
             self.x = x_init
         
-        # Here our gradient descent initialization will need to be assigned as the master
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-
-        # Needed variables for the MPI processing
-        self.comm = comm
-        self.rank = rank
-        self.size = size
-        
-        if self.size != len(self.oracles) + 1:
+        if self.size != len(self.oracles) + 1 and self.rank == 0:
             # Note later you should add a real error to be triggered
             print "ERROR: Your script call should be in the form:"
             print "mpirun -np <int: number of oracles + 1> python <string: name of script>"
@@ -97,7 +104,7 @@ class GradientDescent:
             
             # Perform the reduce to find the g_x sum of gradient vector        
             self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)    
-        
+            
             # If we are the master do a check to see if we have found a solution within the epsilon
             if self.rank == 0:
         
@@ -114,13 +121,17 @@ class GradientDescent:
             if num_iter > self.max_iter:
                 print "Stopping after reaching iteration limit."
                 cont_iter = False
-        
-        print "made it here!"
-        if self.rank > 0:
-            self.comm.Disconnect()
-        print "made it here again!"
-        return None
-        
+            
+             # Now we need to let the workers know the algorithm is finished
+            if self.rank == 0:
+                if cont_iter == True:
+                    data_bcast = True
+                else:
+                    data_bcast = False
+            else:
+                data_bcast = None
+            data_bcast = self.comm.bcast(data_bcast, root=0)
+            cont_iter = data_bcast
         
         
         

@@ -1,37 +1,49 @@
-from dist_ml_convex3 import *
+from dist_ml_convex import *
 import numpy as np
 
-dim_f = 3
+comm = MPI.COMM_WORLD
 
-Q1 = np.array([[1.10940746, 0.84856369, 0.96808427], [0.84856369, 0.71776606, 0.81411964], [0.96808427, 0.81411964, 1.26411601]])
-Q2 = np.array([[0.80520088, 0.62023123, 0.63628587], [0.62023123, 0.72322862, 0.71080702], [0.63628587, 0.71080702, 0.92083444]])
-Q3 = np.array([[1.5451591, 1.18724693, 1.06231687], [1.18724693, 0.96792878, 0.80150356], [1.06231687, 0.80150356, 0.78486679]])
+dim_f = 10
 
-q1 = np.array([[0.15073246], [ 0.70496296], [ 0.90001029]])
-q2 = np.array([[ 0.84843654], [ 0.95739634], [ 0.23685848]])
-q3 = np.array([[ 0.63475301], [ 0.92054327], [ 0.79867474]])
+# First lets branch for depending on if this call is the master or worker
+if comm.Get_rank() == 0:
+    
+    print "The number of processes running: comm.Get_size() = %d" %comm.Get_size()
+    
+    Q1 = np.random.random((dim_f,dim_f))
+    Q1 = 0.5*(Q1 + np.transpose(Q1))
+    Q1 = np.linalg.matrix_power(Q1, 2)
+    Q2 = np.random.random((dim_f,dim_f))
+    Q2 = 0.5*(Q2 + np.transpose(Q2))
+    Q2 = np.linalg.matrix_power(Q2, 2)
+    Q3 = np.random.random((dim_f,dim_f))
+    Q3 = 0.5*(Q3 + np.transpose(Q3))
+    Q3 = np.linalg.matrix_power(Q3, 2)
+    
+    q1 = np.random.random((dim_f,1))
+    q2 = np.random.random((dim_f,1))
+    q3 = np.random.random((dim_f,1))
+        
+    Q = Q1 + Q2 + Q3
+    q = q1 + q2 + q3
 
-# Q1 = np.random.random((dim_f,dim_f))
-# Q1 = 0.5*(Q1 + np.transpose(Q1))
-# Q1 = np.linalg.matrix_power(Q1, 2)
-# Q2 = np.random.random((dim_f,dim_f))
-# Q2 = 0.5*(Q2 + np.transpose(Q2))
-# Q2 = np.linalg.matrix_power(Q2, 2)
-# Q3 = np.random.random((dim_f,dim_f))
-# Q3 = 0.5*(Q3 + np.transpose(Q3))
-# Q3 = np.linalg.matrix_power(Q3, 2)
+    print "Closed form Solution: "
+    print - np.dot(np.linalg.inv(Q), q)
 
-# q1 = np.random.random((dim_f,1))
-# q2 = np.random.random((dim_f,1))
-# q3 = np.random.random((dim_f,1))
+    data_bcast = [Q1, Q2, Q3, q1, q2, q3]
 
+else:
+    data_bcast = None
 
+# Here we needed only one generation of random matrices. If we made instances in each call, the matrices would be different in each.
+data_bcast = comm.bcast(data_bcast, root=0)
 
-Q = Q1 + Q2 + Q3
-q = q1 + q2 + q3
-
-print "Closed form Solution: "
-print - np.dot(np.linalg.inv(Q), q)
+Q1 = data_bcast[0]
+Q2 = data_bcast[1]
+Q3 = data_bcast[2]
+q1 = data_bcast[3]
+q2 = data_bcast[4]
+q3 = data_bcast[5]
 
 f1 = lambda x : (1/2)*(np.dot(np.dot(np.transpose(x), Q1), x)) + np.dot(q1, x)
 f2 = lambda x : (1/2)*(np.dot(np.dot(np.transpose(x), Q2), x)) + np.dot(q2, x)
