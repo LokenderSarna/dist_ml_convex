@@ -1,6 +1,6 @@
-from mpi4py import MPI
+from mpi4py import MPI, MPE
 import numpy as np
-import math, sys
+import math, sys, mpi4py.rc
 
 # Defining a layer of abstraction for each fi. Which will likely end up being a cut where each fi is responsible for some subset of data a machine learning algorithm needs to sift through
 class FirstOrderOracle:
@@ -77,66 +77,75 @@ class GradientDescent:
         
         num_iter = 0
         cont_iter = True
+        sol_found = False
         
-        # Here we initiate the loop to find an x solution to the gradient descent
-        while cont_iter == True:
+        # First we will seperate the worker and master executions
+        if self.rank == 0:
+            
+            # Here we initiate the loop to find an x solution to the gradient descent
+            while cont_iter == True:
         
-            num_iter += 1
+                num_iter += 1
+                
+                # Now we need to either send a self.x vector or flag that child processes should finish their executions
+                if num_iter > self.max_iter or sol_found == True:
+                    # If we can't find a value within the max iteration limit stop the execution
+                    if num_iter > self.max_iter:
+                        print "Stopping after reaching iteration limit."
+                    else:
+                        print "Gradient descent has found a solution:"
+                        print self.x
+                    cont_iter = False
+                    data_bcast = cont_iter
+                else:
+                    # Send the current x vector to the children
+                    data_bcast = self.x
         
-            # First lets branch for depending on if this call is the master or worker
-            if self.rank == 0:
-                # If this is the master we need to send the current x value to the children
-                data_bcast = self.x
                 # Initialize our masters summation of the gradients
                 g_x = np.zeros_like(self.x)
-            
-            else:
-                data_bcast = None
-                g_x = None
         
-            # Now broadcast our self.x value so the other worker processes can compute their oracles gradient
-            data_bcast = self.comm.bcast(data_bcast, root=0)
+                # Now broadcast our self.x value so the other worker processes can compute their oracles gradient
+                data_bcast = self.comm.bcast(data_bcast, root=0)
+                
+                # Here we need to check that data_bcast just sent wasn't a flag to stop the worker execution. If it was then we need to stop our master execution
+                if cont_iter == False:
+                    if sol_found == True:
+                        return self.x
+                    else:
+                        return None
         
-            x_out = np.zeros_like(self.x)
-            # Now if the rank is above 0 the process is the child and should compute the gradient at current x
-            if self.rank > 0:
-                x_out = self.oracle.grad_f(data_bcast)
-            
-            # Perform the reduce to find the g_x sum of gradient vector        
-            self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)    
-            
-            # If we are the master do a check to see if we have found a solution within the epsilon
-            if self.rank == 0:
+                x_out = np.zeros_like(self.x)
+                # Perform the reduce to find the g_x sum of gradient vector        
+                self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)    
         
                 # Here we do the update if we aren't within the epsilon value
                 if np.linalg.norm(g_x) > self.epsilon:
                     # Note that fi is a function that goes from fi: R^d -> R^d, xk+1 = xk - alpha(num_iter)*f(xk)
                     self.x = np.subtract(self.x, np.multiply(self.alpha(num_iter), g_x))
                 else:
-                    cont_iter = False
-                    print "Gradient descent has found a solution:"
-                    print self.x
-
-            # If we can't find a value within the max iteration limit return None
-            if num_iter > self.max_iter:
-                print "Stopping after reaching iteration limit."
-                cont_iter = False
+                    sol_found = True
+        
+        # Worker execution is as follows
+        else:
             
-             # Now we need to let the workers know the algorithm is finished
-            if self.rank == 0:
-                if cont_iter == True:
-                    data_bcast = True
-                else:
-                    data_bcast = False
-            else:
+            # Here we initiate the loop to find an x solution to the gradient descent
+            while cont_iter == True:
+        
+                # For our worker execution case these variables do not need to send values and are thus assigned to None
                 data_bcast = None
-            data_bcast = self.comm.bcast(data_bcast, root=0)
-            cont_iter = data_bcast
+                g_x = None
         
+                # Now broadcast our self.x value so the other worker processes can compute their oracles gradient
+                data_bcast = self.comm.bcast(data_bcast, root=0)
         
-        
-        
-        
-        
-        
-        
+                # Check to make sure we haven't been flagged to stop worker execution
+                if isinstance(data_bcast, bool):
+                    cont_iter = False
+                    continue
+                
+                x_out = np.zeros_like(self.x)
+                # Now if the rank is above 0 the process is the child and should compute the gradient at current x
+                x_out = self.oracle.grad_f(data_bcast)
+            
+                # Perform the reduce to find the g_x sum of gradient vector        
+                self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)
