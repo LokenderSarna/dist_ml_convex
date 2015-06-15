@@ -1,12 +1,14 @@
 from dist_ml_convex import *
 import numpy as np
+import time
 
 comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
 
 dim_f = 10
 
 # First lets branch for depending on if this call is the master or worker
-if comm.Get_rank() == 0:
+if rank == 0:
     
     print "The number of processes running: comm.Get_size() = %d" %comm.Get_size()
     
@@ -53,12 +55,18 @@ grad_f1 = lambda x : np.dot(Q1, x) + q1
 grad_f2 = lambda x : np.dot(Q2, x) + q2
 grad_f3 = lambda x : np.dot(Q3, x) + q3
 
-oracle1 = FirstOrderOracle(f1, grad_f1, dim_f) 
-oracle2 = FirstOrderOracle(f2, grad_f2, dim_f) 
-oracle3 = FirstOrderOracle(f3, grad_f3, dim_f) 
+oracle1 = FirstOrderOracle(grad_f1, dim_f, f=f1) 
+oracle2 = FirstOrderOracle(grad_f2, dim_f, f=f2) 
+oracle3 = FirstOrderOracle(grad_f3, dim_f, f=f3) 
 
+
+t0 = time.time()
 oracles = [oracle1, oracle2, oracle3]
-
 grad = GradientDescent(oracles)
+t1 = time.time()
+print "rank = %d initialization time = %f" %(rank, (t1 - t0))
 
+t0 = time.time()
 grad.execute()
+t1 = time.time()
+print "rank = %d 'grad.execute()' execution time = %f" %(rank, (t1 - t0))

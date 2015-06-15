@@ -1,13 +1,16 @@
-from mpi4py import MPI, MPE
+from mpi4py import MPI
 import numpy as np
-import math, sys, mpi4py.rc
+import math, sys, time, csv
 
 # Defining a layer of abstraction for each fi. Which will likely end up being a cut where each fi is responsible for some subset of data a machine learning algorithm needs to sift through
 class FirstOrderOracle:
 
     # Where f is the function and grad_f is its gradient, f_dim
-    def __init__(self, f, grad_f, dim_f):
-        self.f = f
+    def __init__(self, grad_f, dim_f, f=None):
+        if f == None:
+            f = None
+        else:
+            self.f = f
         self.grad_f = grad_f
         self.dim_f = dim_f
 
@@ -79,6 +82,13 @@ class GradientDescent:
         cont_iter = True
         sol_found = False
         
+        bcast_time_master = 0
+        reduce_time_master = 0
+        
+        bcast_time_worker = 0
+        reduce_time_worker = 0
+        
+        
         # First we will seperate the worker and master executions
         if self.rank == 0:
             
@@ -95,6 +105,9 @@ class GradientDescent:
                     else:
                         print "Gradient descent has found a solution:"
                         print self.x
+                        print "rank = %d total bcast_time_master = %f" %(self.rank, bcast_time_master)
+                        print "rank = %d total reduce_time_master = %f" %(self.rank, reduce_time_master)
+                        
                     cont_iter = False
                     data_bcast = cont_iter
                 else:
@@ -105,7 +118,10 @@ class GradientDescent:
                 g_x = np.zeros_like(self.x)
         
                 # Now broadcast our self.x value so the other worker processes can compute their oracles gradient
+                t0 = time.time()
                 data_bcast = self.comm.bcast(data_bcast, root=0)
+                t1 = time.time()
+                bcast_time_master += t1 - t0
                 
                 # Here we need to check that data_bcast just sent wasn't a flag to stop the worker execution. If it was then we need to stop our master execution
                 if cont_iter == False:
@@ -115,8 +131,11 @@ class GradientDescent:
                         return None
         
                 x_out = np.zeros_like(self.x)
-                # Perform the reduce to find the g_x sum of gradient vector        
+                # Perform the reduce to find the g_x sum of gradient vector   
+                t0 = time.time()
                 self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)    
+                t1 = time.time()
+                reduce_time_master += t1 - t0
         
                 # Here we do the update if we aren't within the epsilon value
                 if np.linalg.norm(g_x) > self.epsilon:
@@ -136,16 +155,25 @@ class GradientDescent:
                 g_x = None
         
                 # Now broadcast our self.x value so the other worker processes can compute their oracles gradient
+                t0 = time.time()
                 data_bcast = self.comm.bcast(data_bcast, root=0)
+                t1 = time.time()
+                bcast_time_worker += t1 - t0 
+                
         
                 # Check to make sure we haven't been flagged to stop worker execution
                 if isinstance(data_bcast, bool):
                     cont_iter = False
+                    print "rank = %d total bcast_time_worker = %f" %(self.rank, bcast_time_worker)
+                    print "rank = %d total reduce_time_worker = %f" %(self.rank, reduce_time_worker)
                     continue
                 
                 x_out = np.zeros_like(self.x)
                 # Now if the rank is above 0 the process is the child and should compute the gradient at current x
                 x_out = self.oracle.grad_f(data_bcast)
             
-                # Perform the reduce to find the g_x sum of gradient vector        
+                # Perform the reduce to find the g_x sum of gradient vector
+                t0 = time.time()
                 self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)
+                t1 = time.time()
+                reduce_time_worker += t1 - t0
