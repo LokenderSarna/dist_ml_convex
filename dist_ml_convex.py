@@ -7,7 +7,7 @@ class FirstOrderOracle:
 
     # Where f is the function and grad_f is its gradient, f_dim
     def __init__(self, grad_f, dim_f, f=None):
-        if f == None:
+        if f is None:
             f = None
         else:
             self.f = f
@@ -16,7 +16,7 @@ class FirstOrderOracle:
 
 # Defaults for gradient descent parameters
 EPSILON_DEFAULT = 0.001
-MAX_ITER_DEFAULT = 100000
+MAX_ITER_DEFAULT = 10000
 ALPHA_DEFAULT = 0.001
 
 # Gradient_descent will take a convex problem as input and find the optimal x* 
@@ -50,7 +50,7 @@ class GradientDescent:
             self.max_iter = MAX_ITER_DEFAULT
         else:
             self.max_iter = max_iter
-        if x_init == None:
+        if x_init is None:
             # We will randomly choose our x initial values for gradient descent
             if self.rank == 0:
                 data_bcast = np.random.random((self.dim_f, 1))
@@ -94,7 +94,6 @@ class GradientDescent:
             
             # Here we initiate the loop to find an x solution to the gradient descent
             while cont_iter == True:
-        
                 num_iter += 1
                 
                 # Now we need to either send a self.x vector or flag that child processes should finish their executions
@@ -105,8 +104,8 @@ class GradientDescent:
                     else:
                         print "Gradient descent has found a solution:"
                         print self.x
-                        print "rank = %d total bcast_time_master = %f" %(self.rank, bcast_time_master)
-                        print "rank = %d total reduce_time_master = %f" %(self.rank, reduce_time_master)
+                        # print "rank = %d total bcast_time_master = %f" %(self.rank, bcast_time_master)
+                        # print "rank = %d total reduce_time_master = %f" %(self.rank, reduce_time_master)
                         
                     cont_iter = False
                     data_bcast = cont_iter
@@ -141,6 +140,7 @@ class GradientDescent:
                 if np.linalg.norm(g_x) > self.epsilon:
                     # Note that fi is a function that goes from fi: R^d -> R^d, xk+1 = xk - alpha(num_iter)*f(xk)
                     self.x = np.subtract(self.x, np.multiply(self.alpha(num_iter), g_x))
+                    # print self.x
                 else:
                     sol_found = True
         
@@ -164,8 +164,8 @@ class GradientDescent:
                 # Check to make sure we haven't been flagged to stop worker execution
                 if isinstance(data_bcast, bool):
                     cont_iter = False
-                    print "rank = %d total bcast_time_worker = %f" %(self.rank, bcast_time_worker)
-                    print "rank = %d total reduce_time_worker = %f" %(self.rank, reduce_time_worker)
+                    # print "rank = %d total bcast_time_worker = %f" %(self.rank, bcast_time_worker)
+                    # print "rank = %d total reduce_time_worker = %f" %(self.rank, reduce_time_worker)
                     continue
                 
                 x_out = np.zeros_like(self.x)

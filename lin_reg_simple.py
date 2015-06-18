@@ -9,7 +9,7 @@ size = comm.Get_size()
 
 # Method to flatten a matrix down for broadcasting with Bcast returns a simple flat array
 def flatten(A):
-    return np.array(A.flatten().tolist(), dtype=np.int16)
+    return np.array(A.flatten().tolist(), dtype=np.float64)
 
 # Going to define a method to unflatten an input list/array A and output a 2d array of dimensions n x m
 def unflatten(A, n, m):
@@ -32,31 +32,39 @@ def unflatten(A, n, m):
 # If the process is the master assign subsets of the dataset to each process via oracles
 if rank == 0:
     
-    # First we read from the csv via the pandas library
-    data = pd.read_csv('../train.csv', skipinitialspace=1)
-    Y_train = data['label']
-    X_train = data.drop('label', 1)
+    # Gather data from train and test csv 
+    data_train = pd.read_csv('../train.csv', skipinitialspace=1, index_col=0, parse_dates=True)
+
+    # Explode datetime into hour, dayofweek, and month
+    data_train['hour'] = data_train.index.hour
+    data_train['dayofweek'] = data_train.index.weekday
+    data_train['month'] = data_train.index.month
+
+    # Build a dataset with its matching y outputs
+    X_selected_cols = [u'weather',u'dayofweek',u'hour',u'season',u'holiday',u'workingday',u'temp',u'atemp',u'humidity',u'windspeed']
+    X_train = data_train[X_selected_cols]
+    Y_train = data_train['count']
     
     # Now split each data matrix needed into a flattened array for broadcasting
-    X1 = flatten(X_train._slice(slice(0,10000)).as_matrix())
-    Y1 = flatten(Y_train._slice(slice(0,10000)).as_matrix())
-    X2 = flatten(X_train._slice(slice(10000,20000)).as_matrix())
-    Y2 = flatten(Y_train._slice(slice(10000,20000)).as_matrix())
-    X3 = flatten(X_train._slice(slice(20000,30000)).as_matrix())
-    Y3 = flatten(Y_train._slice(slice(20000,30000)).as_matrix())
-    X4 = flatten(X_train._slice(slice(30000,42000)).as_matrix())
-    Y4 = flatten(Y_train._slice(slice(30000,42000)).as_matrix())            
+    X1 = flatten(X_train._slice(slice(0,2500)).as_matrix())
+    Y1 = flatten(Y_train._slice(slice(0,2500)).as_matrix())
+    X2 = flatten(X_train._slice(slice(2500,5000)).as_matrix())
+    Y2 = flatten(Y_train._slice(slice(2500,5000)).as_matrix())
+    X3 = flatten(X_train._slice(slice(5000,7500)).as_matrix())
+    Y3 = flatten(Y_train._slice(slice(5000,7500)).as_matrix())
+    X4 = flatten(X_train._slice(slice(7500,10000)).as_matrix())
+    Y4 = flatten(Y_train._slice(slice(7500,10000)).as_matrix())      
 
 # The other processes are receiving the data so they send None
 else:
-    X1 = np.empty(784*10000, dtype=np.int16)
-    Y1 = np.empty(1*10000, dtype=np.int16)
-    X2 = np.empty(784*10000, dtype=np.int16)
-    Y2 = np.empty(1*10000, dtype=np.int16)
-    X3 = np.empty(784*10000, dtype=np.int16)
-    Y3 = np.empty(1*10000, dtype=np.int16)
-    X4 = np.empty(784*12000, dtype=np.int16)
-    Y4 = np.empty(1*12000, dtype=np.int16)
+    X1 = np.empty(25000, dtype=np.float64)
+    Y1 = np.empty(2500, dtype=np.float64)
+    X2 = np.empty(25000, dtype=np.float64)
+    Y2 = np.empty(2500, dtype=np.float64)
+    X3 = np.empty(25000, dtype=np.float64)
+    Y3 = np.empty(2500, dtype=np.float64)
+    X4 = np.empty(25000, dtype=np.float64)
+    Y4 = np.empty(2500, dtype=np.float64)    
 
 # Here we are broadcasting the data subsets for the other processes to pick up. This avoids multiple csv reads.
 comm.Bcast([X1, MPI.DOUBLE], root=0)
@@ -68,59 +76,47 @@ comm.Bcast([Y3, MPI.DOUBLE], root=0)
 comm.Bcast([X4, MPI.DOUBLE], root=0)
 comm.Bcast([Y4, MPI.DOUBLE], root=0)
 
-# Declare the dimensions of f as 784 which is the number of columns at each sample point
-dim_f = 784
+# Now deal with the correct sizing of the arrays
+subset_len = 2500        
 
-# Now each subprocesses is delegated to its own operations set. Where rank == 0 is the master and all others are workers
-if rank == 0:
-    print "Master here!"
+# Now unflatten the broadcasted data
+X1 = unflatten(X1, subset_len, 10)
+Y1 = unflatten(Y1, subset_len, 1)
+X2 = unflatten(X2, subset_len, 10)
+Y2 = unflatten(Y2, subset_len, 1)
+X3 = unflatten(X3, subset_len, 10)
+Y3 = unflatten(Y3, subset_len, 1)
+X4 = unflatten(X4, subset_len, 10)
+Y4 = unflatten(Y4, subset_len, 1)
 
-# Worker processes follow this branch of execution
-else:
+# Define gradients for oracles
+X = X1
+XT = X1.T
+Y = Y1
+grad_f1 = lambda x : 2*np.dot(np.dot(XT, X), x) - np.dot(XT, Y)
+X = X2
+XT = X2.T
+Y = Y2
+grad_f2 = lambda x : 2*np.dot(np.dot(XT, X), x) - np.dot(XT, Y)
+X = X3
+XT = X3.T
+Y = Y3
+grad_f3 = lambda x : 2*np.dot(np.dot(XT, X), x) - np.dot(XT, Y)
+X = X4
+XT = X4.T
+Y = Y4
+grad_f4 = lambda x : 2*np.dot(np.dot(XT, X), x) - np.dot(XT, Y)
 
-        
-    if rank == 1:
-    
-        X = unflatten(X1, 10000, 784)
-        Y = unflatten(Y1, 10000, 1)
-    
-        print X.shape
-        
-        XT = X.T
-        print XT.shape
+w = np.random.random((10, 1))
 
-        XTX = np.dot(XT, X)
-        
-        print XTX.shape
-        
-        print Y.shape
-        # XtX = X.T.dot(X)
-        # print XtX.shape
-        # XtXY = np.dot(XtX, Y)
-        # print XtXY.shape
+# Declare the dimensions of f, which is the number of columns at each sample point
+dim_f = 10
 
-# Now we need to generate the grad_f lambdas
+oracle1 = FirstOrderOracle(grad_f1, dim_f)
+oracle2 = FirstOrderOracle(grad_f2, dim_f)
+oracle3 = FirstOrderOracle(grad_f3, dim_f)
+oracle4 = FirstOrderOracle(grad_f4, dim_f)
 
-# if rank == 0:
-#
-#     print getsizeof(X1)
-#     print 1
-#     print X1.shape
-#     print np.transpose(X1).shape
-#     print 2
-#     X1tX1 = X1.T.dot(X1)
-#     #X1tX1 = np.dot(np.transpose(X1), X1)
-#     print 3
-#     print X1tX1.shape
-#     print 4
-#     wi = np.random.random((dim_f, 1))
-#     X1tX1w = np.dot(X1tX1, wi)
-#     print 5
-#     print X1tX1w.shape
-#
-    # grad_f1 = lambda x : 2*(np.dot(np.dot(np.transpose(X1), X1), x) - np.dot(np.transpose(X1), Y1))
-    # print grad_f1(wi)
-
-# grad = GradientDescent(oracles)
-# grad.execute()
-
+oracles = [oracle1, oracle2, oracle3, oracle4]
+grad = GradientDescent(oracles, alpha=(lambda x : 0.0000000168), max_iter=1000000, epsilon=10000)
+grad.execute()
