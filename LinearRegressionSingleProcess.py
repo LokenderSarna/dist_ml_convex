@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 
 # Defaults for gradient descent parameters
-EPSILON_DEFAULT = 0.01
-MAX_ITER_DEFAULT = 10000
-ALPHA_DEFAULT = 0.001
+EPSILON_DEFAULT = 0.8
+MAX_ITER_DEFAULT = 1000000
+ALPHA_DEFAULT = 0.000000016
 
 # Single process linear regression will test to see if our dot product function is the problem still even in single process.
 class LinearRegressionSingleProcess:
@@ -13,13 +13,9 @@ class LinearRegressionSingleProcess:
     def __init__(self, X, y):
         self.y = np.matrix(y).T
         self.X = np.column_stack((X, np.ones(len(X))))
-        
+                
         # Initialize the weights vector w as random values, could have used zeros
         self.w = np.random.random( ( len(self.X[0]), 1 ) )
-        # print "self.w"
-        # print self.w
-        # print "self.y"
-        # print self.y
     
     # Method to return the weights w of each column vector will perform gradient descent
     def fit(self):
@@ -36,6 +32,8 @@ class LinearRegressionSingleProcess:
             if num_iter > MAX_ITER_DEFAULT:
                 print "Stopping after reaching iteration limit."
                 cont_iter = False
+                print "Current self.w"
+                print self.w
                 continue
             
             # Find sum of each gradient grad_fi(x), since this is a single process version there is only one grad_f(w)
@@ -46,7 +44,7 @@ class LinearRegressionSingleProcess:
             if np.linalg.norm(grad_fw) > EPSILON_DEFAULT:
                 # Note that fi is a function that goes from fi: R^d -> R^d, xk+1 = xk - alpha(num_iter)*f(xk)
                 self.w = np.subtract(self.w, np.multiply(ALPHA_DEFAULT, grad_fw))
-                # print self.w
+                #print self.w
             # If we don't need to update then we have found a solution, so just tell the loop to stop iterating
             else:
                 print "Found solution for weights w:"

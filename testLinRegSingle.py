@@ -3,7 +3,7 @@ import numpy as np
 import time
 import pandas as pd
 from sklearn import datasets, linear_model
-
+"""
 # Load the diabetes dataset
 diabetes = datasets.load_diabetes()
 
@@ -31,9 +31,9 @@ print('Intercept: \n', regr.intercept_)
 
 lin = LinearRegressionSingleProcess(diabetes_X_train, diabetes_y_train)
 lin.fit()
-
-
 """
+
+
 # Gather data from train and test csv 
 data_train = pd.read_csv('../train.csv', skipinitialspace=1, index_col=0, parse_dates=True)
 
@@ -47,8 +47,16 @@ X_selected_cols = [u'weather',u'dayofweek',u'hour',u'season',u'holiday',u'workin
 X_train = data_train[X_selected_cols]
 Y_train = data_train['count']
 
+# Now we are going to compare to sklearns, Create linear regression object
+regr = linear_model.LinearRegression()
+
+# Train the model using the training sets
+regr.fit(X_train.as_matrix(), Y_train.as_matrix())
+# The coefficients
+print('Coefficients: \n', regr.coef_)
+print('Intercept: \n', regr.intercept_)
+
 lin = LinearRegressionSingleProcess( X_train.as_matrix(), Y_train.as_matrix() )
 lin.fit()
-"""
 
 
