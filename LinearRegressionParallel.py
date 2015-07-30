@@ -1,8 +1,8 @@
 from dist_ml_convex import *
 import numpy as np
-import time
 import pandas as pd
 from sklearn import datasets, linear_model
+import time
 
 def main():
     
@@ -12,7 +12,28 @@ def main():
         
     # If the process is the master assign subsets of the dataset to each process via oracles
     if rank == 0:
-    
+        
+        # Gather data from train and test csv 
+        data_train = pd.read_csv('../train.csv', skipinitialspace=1, index_col=0, parse_dates=True)
+
+        # Explode datetime into hour, dayofweek, and month
+        data_train['hour'] = data_train.index.hour
+        data_train['dayofweek'] = data_train.index.weekday
+        data_train['month'] = data_train.index.month
+
+        # Build a dataset with its matching y outputs
+        X_selected_cols = [u'weather',u'dayofweek',u'hour',u'season',u'holiday',u'workingday',u'temp',u'atemp',u'humidity',u'windspeed']
+        X_train = data_train[X_selected_cols]
+        y_train = data_train['count']
+        y_train = np.matrix(y_train).T
+        
+        # Now we need to add a column of ones to account for the intercept in finding a linear prediction
+        X_train = np.column_stack((X_train, np.ones(len(X_train))))
+        
+        # Split the training and testing data into 4 subsets, pretending we have 5 servers total, 4 of which are workers
+        data_bcast = split_seq(X_train, 4) + split_seq(y_train, 4)
+        
+        """
         # So here we are using sklearns simple diabetes example where we will use just one feature to predict y values
         diabetes = datasets.load_diabetes()
     
@@ -35,6 +56,7 @@ def main():
     
         # Split the training and testing data into 4 subsets, pretending we have 5 servers total, 4 of which are workers
         data_bcast = split_seq(diabetes_X_train, 4) + split_seq(diabetes_y_train, 4)
+        """
                 
     # The other processes are receiving the data so they send None
     else:
@@ -60,18 +82,32 @@ def main():
     grad_f4 = lambda x : 2*(np.dot(np.dot(X4.T, X4), x) - np.dot(X4.T, y4))
     
     # The dimensions for the w weight vector we are searching for is 2
-    dim_f = 2
+    dim_f = 11
     
     # Now define the oracles for each server
-    oracle1 = FirstOrderOracle(grad_f1, dim_f) 
+    oracle1 = FirstOrderOracle(grad_f1, dim_f)
     oracle2 = FirstOrderOracle(grad_f2, dim_f) 
     oracle3 = FirstOrderOracle(grad_f3, dim_f) 
     oracle4 = FirstOrderOracle(grad_f4, dim_f)
     oracles = [oracle1, oracle2, oracle3, oracle4]
     
     # Execute the gradient descent and attempt to find a weight w
-    grad = GradientDescent(oracles, alpha=(lambda x : 0.001), max_iter=10000, epsilon=0.001)
+    grad = GradientDescent(oracles, lipschitz=True, max_iter=1000000, epsilon=0.5)
+    
+    # max_iter = 10000
+    # alpha = (lambda iteration : 0.001 if iteration < 0.9*max_iter else 0.00001 )
+    # grad = GradientDescent(oracles, alpha=alpha, max_iter=max_iter, epsilon=0.001)
+    
+    # max_iter = 1000000
+    # alpha = (lambda iteration : 0.0000000168 if iteration < 0.8*max_iter else 0.000000001 )
+    # grad = GradientDescent(oracles, alpha=alpha, max_iter=max_iter, epsilon=0.1)
+    
+    
+    t0 = time.time()
     grad.execute()
+    t1 = time.time()
+    if rank == 0:
+        print "Execution time = %f" %(t1-t0)
     
         
 # Source: http://code.activestate.com/recipes/425397-split-a-list-into-roughly-equal-sized-pieces/
