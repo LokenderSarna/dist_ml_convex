@@ -1,5 +1,7 @@
 from mpi4py import MPI
 import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
 import math, sys, time, csv
 
 # Defining a layer of abstraction for each fi. Which will likely end up being a cut where each fi is responsible for some subset of data a machine learning algorithm needs to sift through
@@ -18,6 +20,99 @@ class FirstOrderOracle:
 EPSILON_DEFAULT = 0.001
 MAX_ITER_DEFAULT = 10000
 ALPHA_DEFAULT = 0.001
+
+# A drawing graph function from: https://www.udacity.com/wiki/creating-network-graphs-with-python
+def draw_graph(graph, labels=None, graph_layout='shell',
+               node_size=1600, node_color='blue', node_alpha=0.3,
+               node_text_size=12,
+               edge_color='blue', edge_alpha=0.3, edge_tickness=1,
+               edge_text_pos=0.3,
+               text_font='sans-serif'):
+
+    # create networkx graph
+    G=nx.Graph()
+
+    # add edges
+    for edge in graph:
+        G.add_edge(edge[0], edge[1])
+
+    # these are different layouts for the network you may try
+    # shell seems to work best
+    if graph_layout == 'spring':
+        graph_pos=nx.spring_layout(G)
+    elif graph_layout == 'spectral':
+        graph_pos=nx.spectral_layout(G)
+    elif graph_layout == 'random':
+        graph_pos=nx.random_layout(G)
+    else:
+        graph_pos=nx.shell_layout(G)
+
+    # draw graph
+    nx.draw_networkx_nodes(G,graph_pos,node_size=node_size, 
+                           alpha=node_alpha, node_color=node_color)
+    nx.draw_networkx_edges(G,graph_pos,width=edge_tickness,
+                           alpha=edge_alpha,edge_color=edge_color)
+    nx.draw_networkx_labels(G, graph_pos,font_size=node_text_size,
+                            font_family=text_font)
+
+    if labels is None:
+        labels = range(len(graph))
+
+    # edge_labels = dict(zip(graph, labels))
+    # nx.draw_networkx_edge_labels(G, graph_pos, edge_labels=edge_labels, 
+                                 # label_pos=edge_text_pos)
+
+    # show graph
+    plt.show()      
+
+# Here we will define a gradient descent method that uses a gossip based implementation, references oracles as graph nodes.
+class GradientDescentGossip:
+    
+    # Starting this off simple with default parameters for alpha, epsilon and max_iter.
+    def __init__(self, oracles):
+        self.comm = MPI.COMM_WORLD
+        self.rank = self.comm.Get_rank()
+        self.size = self.comm.Get_size()
+        self.oracle = oracles[self.rank]
+        self.dim_f = self.oracle.dim_f
+        
+        # Check statement to see if the user has inputed the correct number of processes
+        if self.size != len(oracles) and self.rank == 0:
+            # Note later you should add a real error to be triggered
+            print "ERROR: For the gossip implementation your script call should be in the form:"
+            print "mpirun -np <int: number of oracles> python <string: name of script>"
+            
+        # Now lets do the computation to define our graph. Since we are using probabilities to define edges, we will need to define the graph in one place so lets do it in the rank == 0 process.
+        if self.rank == 0:
+            
+            # Where "np.sqrt( (2*np.log(self.size)) / self.size )" defines the edge probability that leads to a good graph
+            edge_exists = lambda size : True if np.random.random() < np.sqrt( (2*np.log(size)) / size ) else False
+            
+            # Initialize index and edges matrices. Also a graph matrix for display
+            index, edges, graph = [], [], []
+            
+            # Now lets fill our edge and index matrices, Note the index_count variables allows us to track the pointers from our index array to our edges array.
+            index_count = 0
+            for ref_process in range(len(oracles)):               
+                for current_process in range(len(oracles)):
+                    # If our probability function says we should place an edge between processes, we do so.
+                    if ref_process < current_process and edge_exists(self.size):
+                        index_count += 1
+                        edges.append(current_process)
+                        # Print statement to see edge assignment
+                        print '(%d, %d)' %(ref_process, current_process)
+                        graph.append((ref_process, current_process))
+                # Now update the index array
+                index.append(index_count)
+             
+            # Just some printing to see whats going on  
+            print index
+            print edges
+            print graph
+            draw_graph(graph)
+            
+            
+            
 
 # Gradient_descent will take a convex problem as input and find the optimal x* 
 class GradientDescent:
@@ -197,4 +292,4 @@ class GradientDescent:
                 
             
                 # Perform the reduce to find the g_x sum of gradient vector
-                self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)  
+                self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)
