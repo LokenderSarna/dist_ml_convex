@@ -69,12 +69,51 @@ def draw_graph(graph, labels=None, graph_layout='shell',
 class GradientDescentGossip:
     
     # Starting this off simple with default parameters for alpha, epsilon and max_iter.
-    def __init__(self, oracles):
+    def __init__(self, oracles, alpha=None, epsilon=None, max_iter=None, x_init=None, lipschitz=None):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.size = self.comm.Get_size()
         self.oracle = oracles[self.rank]
         self.dim_f = self.oracle.dim_f
+        self.grad_f = self.oracle.grad_f
+        
+        # Define whether or not to use the lipschitz values for decreasing alpha
+        if lipschitz is True:
+            self.lipschitz = True
+        else:
+            self.lipschitz = False
+        
+        # Since alpha will be a function our default will also be a function to match type checking
+        if alpha is None:
+            self.alpha = (lambda x : ALPHA_DEFAULT)
+        else:
+            self.alpha = alpha
+        
+        # Assigning epsilon value which is the size of our solution space
+        if epsilon is None:
+            self.epsilon = EPSILON_DEFAULT
+        else:
+            self.epsilon = epsilon
+        
+        # The maximum number of iterations before the algorithm terminate without a solution in the epsilon space
+        if max_iter is None:
+            self.max_iter = MAX_ITER_DEFAULT
+        else:
+            self.max_iter = max_iter
+        
+        # We will randomly choose our x initial values for gradient descent, the x values being the values we are optimizing
+        if x_init is None:
+            if self.rank == 0:
+                data_bcast = np.random.random((self.dim_f, 1))
+            else:
+                data_bcast = None
+            # There might be a higher communication cost of using a randomly initialized x vector, but for now lets leave it
+            data_bcast = self.comm.bcast(data_bcast, root=0)     
+            self.x = data_bcast
+            self.x_previous = np.zeros((self.dim_f, 1))
+        else:
+            self.x = x_init
+            self.x_previous = np.zeros((self.dim_f, 1))
         
         # Check statement to see if the user has inputed the correct number of processes
         if self.size != len(oracles) and self.rank == 0:
@@ -89,7 +128,7 @@ class GradientDescentGossip:
             edge_exists = lambda size : True if np.random.random() < np.sqrt( (2*np.log(size)) / size ) else False
             
             # Initialize index and edges matrices. Also a graph matrix for display
-            index, edges, graph = [], [], []
+            index, edges, graph, degrees = [], [], [], np.zeros(16)
             
             # Now lets fill our edge and index matrices, Note the index_count variables allows us to track the pointers from our index array to our edges array.
             index_count = 0
@@ -99,19 +138,96 @@ class GradientDescentGossip:
                     if ref_process < current_process and edge_exists(self.size):
                         index_count += 1
                         edges.append(current_process)
-                        # Print statement to see edge assignment
-                        print '(%d, %d)' %(ref_process, current_process)
                         graph.append((ref_process, current_process))
+                        degrees[ref_process] += 1
+                        degrees[current_process] += 1
                 # Now update the index array
                 index.append(index_count)
-             
-            # Just some printing to see whats going on  
-            print index
-            print edges
-            print graph
-            draw_graph(graph)
             
+            # Initialize zero array for weights
+            weights = np.zeros((self.size, self.size))
             
+            # Now we need to find the weights associated with each edge.
+            for edge in graph:
+                edge1, edge2 = edge[0], edge[1]
+                weights[edge1, edge2] = weights[edge2, edge1] = 1 / max(degrees[edge1], degrees[edge2])
+            # Assign self weights, that is the diagonal of the matrix
+            for ref_node in range(self.size):
+                sum_of_weights = 0
+                for current_node in range(self.size):
+                    sum_of_weights += weights[ref_node][current_node]
+                weights[ref_node][ref_node] = 1 - sum_of_weights
+            
+            np.set_printoptions(suppress=True)
+            np.set_printoptions(precision=2)            
+            
+            # Show the created graph via networkx
+            # draw_graph(graph)
+            
+            # Now that we have defined our graph, weights, etc. We need to notify the other processes and give them the info. 
+            data_bcast = [index, edges, graph, weights]
+        
+        # If rank is not equal to 0, ie all other processes
+        else:
+            data_bcast = None
+        
+        # There might be a higher communication cost of using a randomly initialized x vector, but for now lets leave it
+        data_bcast = self.comm.bcast(data_bcast, root=0)
+        
+        # Assign and seperate the broadcasted arrays
+        index, edges, graph, weights = data_bcast[0], data_bcast[1], data_bcast[2], data_bcast[3]
+        
+        neighbours = []
+        # Now generate the nieghbours array so each process knows who to send x updates to.
+        for node in range(len(weights[self.rank])):
+            if weights[self.rank][node] != 0 and self.rank != node:
+                neighbours += [node]
+        # Now assign to the process instance for reference in gradient descent execution.
+        self.neighbours = neighbours
+        # Just assign the weights the process needs to know.
+        self.weights = weights[self.rank]
+        
+        
+    # Now we perform the execution of gradient descent
+    def execute(self):
+        
+        cont_iter = True
+        num_iter = 0
+        
+        # Begin the iteration steps to update our weights of self.x
+        while cont_iter == True:
+            
+            num_iter += 1
+            # So for this first implementation we are just going to use iteration limit for a termination criteria
+            if num_iter > self.max_iter:
+                # If we can't find a value within the max iteration limit stop the execution
+                print "Stopping after reaching iteration limit. Here was the final weights found at rank = %d:" %self.rank
+                print self.x
+                cont_iter = False
+                continue
+            
+            # Compute grad at this process with its current x value
+            grad_f_x = self.grad_f(self.x)
+            
+            # Send the value found to neighbours
+            for neighbour in self.neighbours:
+                self.comm.Send([self.x, MPI.DOUBLE], dest=neighbour)
+            
+            # Recieve the x values the other processes found on this iteration, I am assigning grad_f_x_received to grad_f_x just as a placeholder for incoming receptions. They match types so the initialization is easy.
+            grad_f_x_received = grad_f_x
+            # sum_grads is the sum of gradients normalized and weighted via our initialized weights matrix and received values for grad_f_x_j
+            sum_grads = 0
+            
+            for neighbour in self.neighbours:
+                self.comm.Recv([grad_f_x_received, MPI.DOUBLE], source=neighbour)
+                # Here we need to fulfill the equation x_i_k+1 = x_i_k - alpha_k (sum of all neighbours j) weight_i_j*grad_f_j(x_j)
+                sum_grads += self.weights[neighbour]*grad_f_x_received
+            
+            # Update the x value based on a weighted summation of grad_fs
+            self.x = self.x - self.alpha(num_iter)*sum_grads
+            
+            if self.rank == 12 and num_iter % 1000 == 0:
+                print self.x
             
 
 # Gradient_descent will take a convex problem as input and find the optimal x* 
@@ -191,14 +307,7 @@ class GradientDescent:
         
         num_iter = 0
         cont_iter = True
-        sol_found = False
-        
-        bcast_time_master = 0
-        reduce_time_master = 0
-        
-        bcast_time_worker = 0
-        reduce_time_worker = 0
-        
+        sol_found = False      
         
         # First we will seperate the worker and master executions
         if self.rank == 0:

@@ -82,7 +82,7 @@ def main():
     X14 = data_bcast[13]
     X15 = data_bcast[14]
     X16 = data_bcast[15]
-    
+        
     y1 = data_bcast[16]
     y2 = data_bcast[17]
     y3 = data_bcast[18]
@@ -144,7 +144,9 @@ def main():
     oracles = [oracle1, oracle2, oracle3, oracle4, oracle5, oracle6, oracle7, oracle8, oracle9, oracle10, oracle11, oracle12, oracle13, oracle14, oracle15, oracle16]
     
     # Testing for gossip implementation
-    grad = GradientDescentGossip(oracles)
+    L = np.linalg.norm(np.dot(X2.T,X2))
+    print L
+    grad = GradientDescentGossip(oracles, max_iter=1000000, alpha=(lambda x : L))
     
     # Execute the gradient descent and attempt to find a weight w
     # grad = GradientDescent(oracles, lipschitz=True, max_iter=1000000, epsilon=0.5)
@@ -159,7 +161,7 @@ def main():
     
     
     # t0 = time.time()
-    # grad.execute()
+    grad.execute()
     # t1 = time.time()
     # if rank == 0:
     #     print "Execution time = %f" %(t1-t0)
