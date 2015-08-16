@@ -22,12 +22,7 @@ MAX_ITER_DEFAULT = 10000
 ALPHA_DEFAULT = 0.001
 
 # A drawing graph function from: https://www.udacity.com/wiki/creating-network-graphs-with-python
-def draw_graph(graph, labels=None, graph_layout='shell',
-               node_size=1600, node_color='blue', node_alpha=0.3,
-               node_text_size=12,
-               edge_color='blue', edge_alpha=0.3, edge_tickness=1,
-               edge_text_pos=0.3,
-               text_font='sans-serif'):
+def draw_graph(graph, labels=None, graph_layout='shell', node_size=1600, node_color='blue', node_alpha=0.3, node_text_size=12,edge_color='blue', edge_alpha=0.3, edge_tickness=1,edge_text_pos=0.3,text_font='sans-serif'):
 
     # create networkx graph
     G=nx.Graph()
@@ -150,19 +145,16 @@ class GradientDescentGossip:
             # Now we need to find the weights associated with each edge.
             for edge in graph:
                 edge1, edge2 = edge[0], edge[1]
-                weights[edge1, edge2] = weights[edge2, edge1] = 1 / max(degrees[edge1], degrees[edge2])
+                weights[edge1, edge2] = weights[edge2, edge1] = 1 / (max(degrees[edge1], degrees[edge2]) + 1)
             # Assign self weights, that is the diagonal of the matrix
             for ref_node in range(self.size):
                 sum_of_weights = 0
                 for current_node in range(self.size):
                     sum_of_weights += weights[ref_node][current_node]
                 weights[ref_node][ref_node] = 1 - sum_of_weights
-            
-            np.set_printoptions(suppress=True)
-            np.set_printoptions(precision=2)            
-            
+                        
             # Show the created graph via networkx
-            # draw_graph(graph)
+            draw_graph(graph)
             
             # Now that we have defined our graph, weights, etc. We need to notify the other processes and give them the info. 
             data_bcast = [index, edges, graph, weights]
@@ -177,15 +169,22 @@ class GradientDescentGossip:
         # Assign and seperate the broadcasted arrays
         index, edges, graph, weights = data_bcast[0], data_bcast[1], data_bcast[2], data_bcast[3]
         
+        #!!!!
+        # weights.fill(0.2)
+        
+        
         neighbours = []
         # Now generate the nieghbours array so each process knows who to send x updates to.
         for node in range(len(weights[self.rank])):
             if weights[self.rank][node] != 0 and self.rank != node:
                 neighbours += [node]
+                
+        
         # Now assign to the process instance for reference in gradient descent execution.
         self.neighbours = neighbours
         # Just assign the weights the process needs to know.
         self.weights = weights[self.rank]
+        
         
         
     # Now we perform the execution of gradient descent
@@ -194,6 +193,10 @@ class GradientDescentGossip:
         cont_iter = True
         num_iter = 0
         
+        # Need to create a alpha array for matrix multiplication
+        alpha = np.zeros((self.dim_f, 1))
+        alpha.fill(self.alpha(num_iter))
+        
         # Begin the iteration steps to update our weights of self.x
         while cont_iter == True:
             
@@ -201,33 +204,47 @@ class GradientDescentGossip:
             # So for this first implementation we are just going to use iteration limit for a termination criteria
             if num_iter > self.max_iter:
                 # If we can't find a value within the max iteration limit stop the execution
-                print "Stopping after reaching iteration limit. Here was the final weights found at rank = %d:" %self.rank
-                print self.x
+                # print "Stopping after reaching iteration limit. Here was the final weights found at rank = %d:" %self.rank
+                # print self.x
                 cont_iter = False
                 continue
             
             # Compute grad at this process with its current x value
-            grad_f_x = self.grad_f(self.x)
+            grad_fi = np.asarray(self.grad_f(self.x))
+            grad_fi_sending = np.copy(grad_fi) # This np.copy probably isn't necessary.
+            
             
             # Send the value found to neighbours
             for neighbour in self.neighbours:
-                self.comm.Send([self.x, MPI.DOUBLE], dest=neighbour)
+                self.comm.Send(grad_fi_sending, dest=neighbour)
             
-            # Recieve the x values the other processes found on this iteration, I am assigning grad_f_x_received to grad_f_x just as a placeholder for incoming receptions. They match types so the initialization is easy.
-            grad_f_x_received = grad_f_x
-            # sum_grads is the sum of gradients normalized and weighted via our initialized weights matrix and received values for grad_f_x_j
-            sum_grads = 0
+            weight_multiplier = np.ndarray((self.dim_f, 1))
+            weight_multiplier.fill(self.weights[self.rank])
+            grad_sum = weight_multiplier*grad_fi_sending
             
+            # Recieve the x values the other processes found on this iteration
+            grad_fj_received = np.zeros((self.dim_f, 1))
             for neighbour in self.neighbours:
-                self.comm.Recv([grad_f_x_received, MPI.DOUBLE], source=neighbour)
-                # Here we need to fulfill the equation x_i_k+1 = x_i_k - alpha_k (sum of all neighbours j) weight_i_j*grad_f_j(x_j)
-                sum_grads += self.weights[neighbour]*grad_f_x_received
+                self.comm.Recv(grad_fj_received, source=neighbour)
+                
+                weight_multiplier = np.ndarray((self.dim_f, 1))
+                weight_multiplier.fill(self.weights[neighbour])
+                
+                grad_sum += weight_multiplier*grad_fj_received
             
             # Update the x value based on a weighted summation of grad_fs
-            self.x = self.x - self.alpha(num_iter)*sum_grads
+            self.x = self.x - alpha*grad_sum
+        
+            if num_iter % 1000 == 0:
+                print "rank=%d, self.x=" %self.rank
+                print self.x   
             
-            if self.rank == 12 and num_iter % 1000 == 0:
-                print self.x
+            # Here we do the update if we aren't within the epsilon value
+            # if np.linalg.norm(self.grad_f(self.x)) < self.epsilon:
+            #     print "Solution found for rank = %d" %self.rank
+            #     cont_iter = False
+            
+            
             
 
 # Gradient_descent will take a convex problem as input and find the optimal x* 
