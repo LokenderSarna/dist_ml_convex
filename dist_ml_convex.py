@@ -22,7 +22,7 @@ MAX_ITER_DEFAULT = 10000
 ALPHA_DEFAULT = 0.001
 
 # A drawing graph function from: https://www.udacity.com/wiki/creating-network-graphs-with-python
-def draw_graph(graph, labels=None, graph_layout='shell', node_size=1600, node_color='blue', node_alpha=0.3, node_text_size=12,edge_color='blue', edge_alpha=0.3, edge_tickness=1,edge_text_pos=0.3,text_font='sans-serif'):
+def draw_graph(graph, labels=None, graph_layout='shell', node_size=1600, node_color='blue', node_alpha=0.3, node_text_size=12, edge_color='blue', edge_alpha=0.3, edge_tickness=1,edge_text_pos=0.3,text_font='sans-serif'):
 
     # create networkx graph
     G=nx.Graph()
@@ -59,6 +59,13 @@ def draw_graph(graph, labels=None, graph_layout='shell', node_size=1600, node_co
 
     # show graph
     plt.show()      
+
+# Single server Gradient Descent
+class GradientDescentSingle:
+	
+	
+	def __init__(self, oracle, alpha=None, epsilon=None, max_iter=None):
+		
 
 # Here we will define a gradient descent method that uses a gossip based implementation, references oracles as graph nodes.
 class GradientDescentGossip:
