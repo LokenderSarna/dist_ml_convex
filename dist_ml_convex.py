@@ -62,9 +62,118 @@ def draw_graph(graph, labels=None, graph_layout='shell', node_size=1600, node_co
 
 # Single server Gradient Descent
 class GradientDescentSingle:
-	
-	
-	def __init__(self, oracle, alpha=None, epsilon=None, max_iter=None):
+    # Parameters taken as input; alpha: the step size function, epsilon: the stop criterion, max_iter: upper limit on the number of iterations
+    def __init__(self, oracle, alpha=None, epsilon=None, max_iter=None, x_init=None, lipschitz=None):
+    	
+            # Here our gradient descent initialization will need to be assigned as the master
+            # self.comm = MPI.COMM_WORLD
+            # self.rank = self.comm.Get_rank()
+            # self.size = self.comm.Get_size()
+            self.oracle = oracle
+            self.dim_f = self.oracle.dim_f
+        
+            # Define whether or not to use the lipschitz values for decreasing alpha
+            if lipschitz is True:
+                self.lipschitz = True
+            else:
+                self.lipschitz = False
+        
+            # Since alpha will be a function our default will also be a function to match type checking
+            if alpha is None:
+                self.alpha = (lambda x : ALPHA_DEFAULT)
+            else:
+                self.alpha = alpha
+        
+            # Assigning epsilon value which is the size of our solution space
+            if epsilon is None:
+                self.epsilon = EPSILON_DEFAULT
+            else:
+                self.epsilon = epsilon
+        
+            # The maximum number of iterations before the algorithm terminate without a solution in the epsilon space
+            if max_iter is None:
+                self.max_iter = MAX_ITER_DEFAULT
+            else:
+                self.max_iter = max_iter
+        
+            # We will randomly choose our x initial values for gradient descent, the x values being the values we are optimizing
+            if x_init is None:
+                self.x = np.random.random((self.dim_f, 1))
+                self.x_previous = np.zeros((self.dim_f, 1))
+            else:
+                self.x = x_init
+                self.x_previous = np.zeros((self.dim_f, 1))
+            
+            # Just to initialize the values I'm going to assign the current g_x and the previous g_x as the current x
+            self.g_x = self.x
+            self.g_x_previous = self.x
+            self.L = 0
+        
+            # Now if lipschitz has been switched on we need to define the alpha to be a function of L
+            if self.lipschitz == True:
+                self.alpha = (lambda iteration : 1 / (self.L * np.sqrt(iteration)))
+                
+            # Check statement to see if the user has inputed the correct number of processes
+            # if self.size != len(self.oracles) + 1 and self.rank == 0:   
+    
+    
+    # Now we need our method to start the process calls
+    def execute(self):
+        
+        num_iter = 0
+        cont_iter = True
+        sol_found = False      
+            
+        # Here we initiate the loop to find an x solution to the gradient descent
+        while cont_iter == True:
+            num_iter += 1
+            
+            # Now we need to either send a self.x vector or flag that child processes should finish their executions
+            if num_iter > self.max_iter or sol_found == True:
+                # If we can't find a value within the max iteration limit stop the execution
+                if num_iter > self.max_iter:
+                    print "Stopping after reaching iteration limit. Here was the final weights found:"
+                    print self.x
+                    return None
+                else:
+                    print "Gradient descent has found a solution:"
+                    print self.x
+                    return self.x
+                    
+            else:
+                    
+                # gradient
+                g_x = np.zeros_like(self.x)
+                # x_out = np.zeros_like(self.x)
+                g_x = self.oracle.grad_f(self.x)
+            
+                if self.lipschitz == True:
+                    # Now update the lip value if needed
+                    self.g_x_previous = self.g_x
+                    self.g_x = g_x
+                
+                    # Now if we are on the first iteration we need to just use the current values and no previous ones
+                    if num_iter == 1:
+                        self.L = self.g_x / self.x
+                    # Otherwise use the difference between the gradients to find the lipschitz constant
+                    else:
+                        self.L = np.linalg.norm(self.g_x - self.g_x_previous) / np.linalg.norm(self.x - self.x_previous)
+                    # Now we do book keeping on the previous x
+                    self.x_previous = self.x
+                
+                
+                # Here we do the update if we aren't within the epsilon value
+                if np.linalg.norm(g_x) > self.epsilon:                        
+                    # Note that fi is a function that goes from fi: R^d -> R^d, xk+1 = xk - alpha(num_iter)*f(xk)
+                    self.x = np.subtract(self.x, np.multiply(self.alpha(num_iter), g_x))
+                
+                    if num_iter%1000 == 0:
+                        print "The current self.x value is:"
+                        print self.x
+                        print "np.linalg.norm(g_x) = %f" %np.linalg.norm(g_x)
+                
+                else:
+                    sol_found = True
 		
 
 # Here we will define a gradient descent method that uses a gossip based implementation, references oracles as graph nodes.
