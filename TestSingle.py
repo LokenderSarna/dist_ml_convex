@@ -70,8 +70,7 @@ def load_bikesharing():
     # print y_train
     
     return X_train, y_train
-    
-# def load_
+
     
     
 def load_random():

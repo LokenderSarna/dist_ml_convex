@@ -9,13 +9,12 @@ def main():
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    
-    dim_f = 11
         
     # If the process is the master assign subsets of the dataset to each process via oracles
     if rank == 0:
         
-        X_train, y_train = load_dataset(dim_f)
+        X_train, y_train = load_diabetes()
+        # X_train, y_train = load_random()
     
         # Split the training and testing data into n sets where n=number of workers (#processes - 1)
         data_bcast = split_seq(X_train, size-1) + split_seq(y_train, size-1)
@@ -33,13 +32,14 @@ def main():
         X_train_data = data_bcast[i]
         y_train_data = data_bcast[i+size-1]
         grad_f = lambda x : 2*(np.dot(np.dot(X_train_data.T, X_train_data), x) - np.dot(X_train_data.T, y_train_data))
+        dim_f = X_train_data.shape[1]
         oracle = FirstOrderOracle(grad_f, dim_f)
         oracles.append(oracle)
  
     # Testing for master-worker implementation
     x_init = np.zeros((dim_f,1))
     if rank == 0: start_time = time.time()
-    grad = GradientDescent(oracles, max_iter=1000000, x_init=x_init, alpha=lambda x: 0.001)   
+    grad = GradientDescent(oracles, max_iter=1000000, x_init=x_init, alpha=lambda x: 0.002)   
     grad.execute()
     if rank == 0: print("--Done: %s seconds --" % (time.time() - start_time))
         
@@ -51,32 +51,38 @@ def split_seq(seq, size):
                 newseq.append(seq[int(round(i*splitsize)):int(round((i+1)*splitsize))])
         return newseq
         
-def load_dataset(dim):
-    # So here we are using sklearns simple diabetes example where we will use just one feature to predict y values
-    diabetes = datasets.load_diabetes()
+def load_diabetes():
+    # load dataset
+    dataset = datasets.load_diabetes()
 
-    # Use only one feature
-    diabetes_X = diabetes.data[:, np.newaxis]  
-    diabetes_X_temp = diabetes_X[:, :, :(dim-1)]
-    # print diabetes_X_temp.shape
-    
     # Split the data into training/testing sets
-    diabetes_X_train = diabetes_X_temp[:-20]  
-    #diabetes_X_test = diabetes_X_temp[-20:]
-    # print diabetes_X_train.shape
+    X = dataset.data[:, np.newaxis]
+    X_train = X[:-20]
+    # Now we need to add a column of ones to account for the intercept in finding a linear prediction
+    X_train = np.matrix(X_train)
+    X_train = np.column_stack((X_train, np.ones(len(X_train))))
 
     # Split the targets into training/testing sets
-    diabetes_y_train = diabetes.target[:-20]
-    diabetes_y_train = np.matrix(diabetes_y_train).T
-    #diabetes_y_test = diabetes.target[-20:]
-    # print diabetes_y_train.shape
+    y_train = dataset.target[:-20]
+    y_train = np.matrix(y_train).T
+    # print type(dataset.target)
+
+    return X_train, y_train
     
-    # Now we need to add a column of ones to account for the intercept in finding a linear prediction
-    diabetes_X_train = np.matrix(diabetes_X_train)
-    diabetes_X_train = np.column_stack((diabetes_X_train, np.ones(len(diabetes_X_train))))
-    # print diabetes_X_train.shape
     
-    return diabetes_X_train, diabetes_y_train
+# def load_bikesharing():
+    # copy form TestSingle.py
+    
+    
+def load_random():
+    X_train = np.random.rand(10000,1)
+    X_train = np.matrix(X_train)
+    # X_train = np.column_stack((X_train, np.ones(len(X_train))))
+    
+    y_train = np.random.rand(1,10000)
+    y_train = np.matrix(y_train).T
+
+    return X_train, y_train
     
 if __name__ == "__main__":
     main()
