@@ -128,7 +128,7 @@ class GradientDescentSingle:
         while cont_iter == True:
             num_iter += 1
             
-            # Now we need to either send a self.x vector or flag that child processes should finish their executions
+            # end conditions
             if num_iter > self.max_iter or sol_found == True:
                 # If we can't find a value within the max iteration limit stop the execution
                 if num_iter > self.max_iter:
