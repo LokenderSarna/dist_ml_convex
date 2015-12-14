@@ -1,4 +1,12 @@
 \BOOKMARK [1][-]{section.1}{Introduction}{}% 1
 \BOOKMARK [2][-]{subsection.1.1}{Definition: Convex Functions}{section.1}% 2
 \BOOKMARK [2][-]{subsection.1.2}{Convexity and Machine Learning}{section.1}% 3
-\BOOKMARK [1][-]{section.2}{Conclusion}{}% 4
+\BOOKMARK [1][-]{section.2}{Master-Worker Parallelization}{}% 4
+\BOOKMARK [2][-]{subsection.2.1}{Implementation}{section.2}% 5
+\BOOKMARK [2][-]{subsection.2.2}{Results}{section.2}% 6
+\BOOKMARK [1][-]{section.3}{Synchronous Gossip Parallelization}{}% 7
+\BOOKMARK [2][-]{subsection.3.1}{Implementation}{section.3}% 8
+\BOOKMARK [3][-]{subsubsection.3.1.1}{Convergence Requirements}{subsection.3.1}% 9
+\BOOKMARK [3][-]{subsubsection.3.1.2}{Communication Efficiency Requirements}{subsection.3.1}% 10
+\BOOKMARK [2][-]{subsection.3.2}{Results}{section.3}% 11
+\BOOKMARK [1][-]{section.4}{Conclusion}{}% 12

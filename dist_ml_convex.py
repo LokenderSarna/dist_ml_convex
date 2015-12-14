@@ -532,6 +532,6 @@ class GradientDescent:
                 # Now if the rank is above 0 the process is the child and should compute the gradient at current x
                 x_out = self.oracle.grad_f(data_bcast)
                 
-            
+            	
                 # Perform the reduce to find the g_x sum of gradient vector
                 self.comm.Reduce([x_out, MPI.DOUBLE], [g_x, MPI.DOUBLE], op=MPI.SUM, root=0)
