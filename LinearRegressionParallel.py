@@ -72,16 +72,16 @@ def main():
     X4 = data_bcast[3]
     X5 = data_bcast[4]
     X6 = data_bcast[5]
-    X7 = data_bcast[6]
-    X8 = data_bcast[7]
-    X9 = data_bcast[8]
-    X10 = data_bcast[9]
-    X11 = data_bcast[10]
-    X12 = data_bcast[11]
-    X13 = data_bcast[12]
-    X14 = data_bcast[13]
-    X15 = data_bcast[14]
-    X16 = data_bcast[15]
+    # X7 = data_bcast[6]
+    # X8 = data_bcast[7]
+    # X9 = data_bcast[8]
+    # X10 = data_bcast[9]
+    # X11 = data_bcast[10]
+    # X12 = data_bcast[11]
+    # X13 = data_bcast[12]
+    # X14 = data_bcast[13]
+    # X15 = data_bcast[14]
+    # X16 = data_bcast[15]
 	
     y1 = data_bcast[16]
     y2 = data_bcast[17]
@@ -89,16 +89,16 @@ def main():
     y4 = data_bcast[19]
     y5 = data_bcast[20]
     y6 = data_bcast[21]
-    y7 = data_bcast[22]
-    y8 = data_bcast[23]
-    y9 = data_bcast[24]
-    y10 = data_bcast[25]
-    y11 = data_bcast[26]
-    y12 = data_bcast[27]
-    y13 = data_bcast[28]
-    y14 = data_bcast[29]
-    y15 = data_bcast[30]
-    y16 = data_bcast[31]
+    # y7 = data_bcast[22]
+    # y8 = data_bcast[23]
+    # y9 = data_bcast[24]
+    # y10 = data_bcast[25]
+    # y11 = data_bcast[26]
+    # y12 = data_bcast[27]
+    # y13 = data_bcast[28]
+    # y14 = data_bcast[29]
+    # y15 = data_bcast[30]
+    # y16 = data_bcast[31]
     
     # Initializing our gradient function for the first order oracles
     grad_f1 = lambda x : 2*(np.dot(np.dot(X1.T, X1), x) - np.dot(X1.T, y1))
@@ -107,18 +107,18 @@ def main():
     grad_f4 = lambda x : 2*(np.dot(np.dot(X4.T, X4), x) - np.dot(X4.T, y4))
     grad_f5 = lambda x : 2*(np.dot(np.dot(X5.T, X5), x) - np.dot(X5.T, y5))
     grad_f6 = lambda x : 2*(np.dot(np.dot(X6.T, X6), x) - np.dot(X6.T, y6))
-    grad_f7 = lambda x : 2*(np.dot(np.dot(X7.T, X7), x) - np.dot(X7.T, y7))
-    grad_f8 = lambda x : 2*(np.dot(np.dot(X8.T, X8), x) - np.dot(X8.T, y8))
-    
-    grad_f9 = lambda x : 2*(np.dot(np.dot(X9.T, X9), x) - np.dot(X9.T, y9))
-    grad_f10 = lambda x : 2*(np.dot(np.dot(X10.T, X10), x) - np.dot(X10.T, y10))
-    grad_f11 = lambda x : 2*(np.dot(np.dot(X11.T, X11), x) - np.dot(X11.T, y11))
-    grad_f12 = lambda x : 2*(np.dot(np.dot(X12.T, X12), x) - np.dot(X12.T, y12))
-    grad_f13 = lambda x : 2*(np.dot(np.dot(X13.T, X13), x) - np.dot(X13.T, y13))
-    grad_f14 = lambda x : 2*(np.dot(np.dot(X14.T, X14), x) - np.dot(X14.T, y14))
-    grad_f15 = lambda x : 2*(np.dot(np.dot(X15.T, X15), x) - np.dot(X15.T, y15))
-    grad_f16 = lambda x : 2*(np.dot(np.dot(X16.T, X16), x) - np.dot(X16.T, y16))
-    
+    # grad_f7 = lambda x : 2*(np.dot(np.dot(X7.T, X7), x) - np.dot(X7.T, y7))
+    # grad_f8 = lambda x : 2*(np.dot(np.dot(X8.T, X8), x) - np.dot(X8.T, y8))
+    #
+    # grad_f9 = lambda x : 2*(np.dot(np.dot(X9.T, X9), x) - np.dot(X9.T, y9))
+    # grad_f10 = lambda x : 2*(np.dot(np.dot(X10.T, X10), x) - np.dot(X10.T, y10))
+    # grad_f11 = lambda x : 2*(np.dot(np.dot(X11.T, X11), x) - np.dot(X11.T, y11))
+    # grad_f12 = lambda x : 2*(np.dot(np.dot(X12.T, X12), x) - np.dot(X12.T, y12))
+    # grad_f13 = lambda x : 2*(np.dot(np.dot(X13.T, X13), x) - np.dot(X13.T, y13))
+    # grad_f14 = lambda x : 2*(np.dot(np.dot(X14.T, X14), x) - np.dot(X14.T, y14))
+    # grad_f15 = lambda x : 2*(np.dot(np.dot(X15.T, X15), x) - np.dot(X15.T, y15))
+    # grad_f16 = lambda x : 2*(np.dot(np.dot(X16.T, X16), x) - np.dot(X16.T, y16))
+    #
     # The dimensions for the w weight vector we are searching for is 2
     dim_f = 2
     
@@ -129,20 +129,20 @@ def main():
     oracle4 = FirstOrderOracle(grad_f4, dim_f)
     oracle5 = FirstOrderOracle(grad_f5, dim_f)
     oracle6 = FirstOrderOracle(grad_f6, dim_f) 
-    oracle7 = FirstOrderOracle(grad_f7, dim_f) 
-    oracle8 = FirstOrderOracle(grad_f8, dim_f)
-    oracle9 = FirstOrderOracle(grad_f9, dim_f)
-    oracle10 = FirstOrderOracle(grad_f10, dim_f) 
-    oracle11 = FirstOrderOracle(grad_f11, dim_f) 
-    oracle12 = FirstOrderOracle(grad_f12, dim_f)
-    oracle13 = FirstOrderOracle(grad_f13, dim_f)
-    oracle14 = FirstOrderOracle(grad_f14, dim_f) 
-    oracle15 = FirstOrderOracle(grad_f15, dim_f) 
-    oracle16 = FirstOrderOracle(grad_f16, dim_f)
+    # oracle7 = FirstOrderOracle(grad_f7, dim_f)
+    # oracle8 = FirstOrderOracle(grad_f8, dim_f)
+    # oracle9 = FirstOrderOracle(grad_f9, dim_f)
+    # oracle10 = FirstOrderOracle(grad_f10, dim_f)
+    # oracle11 = FirstOrderOracle(grad_f11, dim_f)
+    # oracle12 = FirstOrderOracle(grad_f12, dim_f)
+    # oracle13 = FirstOrderOracle(grad_f13, dim_f)
+    # oracle14 = FirstOrderOracle(grad_f14, dim_f)
+    # oracle15 = FirstOrderOracle(grad_f15, dim_f)
+    # oracle16 = FirstOrderOracle(grad_f16, dim_f)
     
     
-    oracles = [oracle1, oracle2, oracle3, oracle4, oracle5, oracle6, oracle7, oracle8, oracle9, oracle10, oracle11, oracle12, oracle13, oracle14, oracle15, oracle16]
-    
+    oracles = [oracle1, oracle2, oracle3, oracle4, oracle5, oracle6] # oracle7, oracle8, oracle9, oracle10, oracle11, oracle12, oracle13, oracle14, oracle15, oracle16]
+ #
     # Testing for gossip implementation
     L = np.linalg.norm(np.dot(X2.T,X2))
     print L

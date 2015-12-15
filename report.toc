@@ -1,0 +1,15 @@
+\contentsline {section}{\numberline {1}Introduction}{2}{section.1}
+\contentsline {subsection}{\numberline {1.1}Definition: Convex Functions}{2}{subsection.1.1}
+\contentsline {subsection}{\numberline {1.2}Convexity and Machine Learning}{3}{subsection.1.2}
+\contentsline {section}{\numberline {2}Master-Worker Parallelization}{5}{section.2}
+\contentsline {subsection}{\numberline {2.1}Implementation}{5}{subsection.2.1}
+\contentsline {subsection}{\numberline {2.2}Results}{5}{subsection.2.2}
+\contentsline {subsubsection}{\numberline {2.2.1}Bike Sharing Dataset}{6}{subsubsection.2.2.1}
+\contentsline {subsubsection}{\numberline {2.2.2}Twitter Database 50k Datapoints}{7}{subsubsection.2.2.2}
+\contentsline {subsubsection}{\numberline {2.2.3}Twitter Database 100k Datapoints}{8}{subsubsection.2.2.3}
+\contentsline {section}{\numberline {3}Synchronous Gossip Parallelization}{9}{section.3}
+\contentsline {subsection}{\numberline {3.1}Implementation}{9}{subsection.3.1}
+\contentsline {subsubsection}{\numberline {3.1.1}Convergence Requirements}{9}{subsubsection.3.1.1}
+\contentsline {subsubsection}{\numberline {3.1.2}Communication Efficiency Requirements}{9}{subsubsection.3.1.2}
+\contentsline {subsection}{\numberline {3.2}Results}{10}{subsection.3.2}
+\contentsline {section}{\numberline {4}Conclusion}{11}{section.4}

@@ -325,12 +325,17 @@ class GradientDescentGossip:
                 cont_iter = False
                 continue
             
+            
             # Compute grad at this process with its current x value
             grad_fi = np.asarray(self.grad_f(self.x))
             grad_fi_sending = np.copy(grad_fi) # This np.copy probably isn't necessary.
+			
+			# Stopping condition
+            if np.linalg.norm(grad_fi) < self.epsilon:
+				print "We have found a solution"
+				self.comm.Abort()
             
-            
-            # Send the value found to neighbours
+			# Send the value found to neighbours
             for neighbour in self.neighbours:
                 self.comm.Send(grad_fi_sending, dest=neighbour)
             
@@ -352,6 +357,8 @@ class GradientDescentGossip:
             self.x = self.x - alpha*grad_sum
         
             if num_iter % 1000 == 0:
+                print "current norm of grad_fi"
+                print np.linalg.norm(grad_fi)
                 print "rank=%d, self.x=" %self.rank
                 print self.x   
             

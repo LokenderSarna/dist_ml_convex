@@ -33,6 +33,10 @@ def main():
         #diabetes_X_train = np.matrix(diabetes_X_train)
         diabetes_X_train = np.column_stack((diabetes_X_train, np.ones(len(diabetes_X_train))))
     
+        solution = np.dot(np.linalg.inv(np.dot(diabetes_X_train.T, diabetes_X_train)), np.dot(diabetes_X_train.T, diabetes_y_train))
+        print "Closed form solution:"
+        print solution
+	
         # Split the training and testing data into 4 subsets, pretending we have 5 servers total, 4 of which are workers
         data_bcast = split_seq(diabetes_X_train, 5) + split_seq(diabetes_y_train, 5)
                 
@@ -77,7 +81,7 @@ def main():
     
     # Testing for gossip implementation
     x_init = np.zeros((2,1))
-    grad = GradientDescentGossip(oracles, max_iter=100000, alpha=lambda x: 0.003)   
+    grad = GradientDescentGossip(oracles, max_iter=1000000000, epsilon=0.1, alpha=lambda x: 0.003)   
     
     grad.execute()
     
